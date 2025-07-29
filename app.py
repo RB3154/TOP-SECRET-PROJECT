@@ -4,9 +4,6 @@ from ultralytics import YOLO
 import os
 import datetime
 import tempfile
-import numpy as np
-import gradio as gr
-import streamlit.components.v1 as components
 from download_model import download_model
 
 st.set_page_config(page_title="Weld Defect Detector - YOLOv8", layout="centered")
@@ -18,9 +15,9 @@ download_model()
 model = YOLO("best (1).pt")
 
 # === Tabs ===
-tab1, tab2 = st.tabs(["🖼️ Image Upload", "📷 Webcam Live Detection"])
+tab1, tab2 = st.tabs(["🖼️ Image Upload", "📸 Take Photo (Phone/Laptop)"])
 
-# === TAB 1 ===
+# === TAB 1: Standard Image Upload ===
 with tab1:
     st.header("📁 Upload Image for Prediction")
     uploaded_file = st.file_uploader("Upload JPG, PNG", type=["jpg", "jpeg", "png"])
@@ -28,12 +25,12 @@ with tab1:
 
     if uploaded_file:
         st.image(uploaded_file, caption="Uploaded Image", use_column_width=True)
-        temp_img = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
-        temp_img.write(uploaded_file.read())
-        temp_img_path = temp_img.name
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
+        temp_file.write(uploaded_file.read())
+        img_path = temp_file.name
 
-        with st.spinner("🧠 Running inference..."):
-            results = model.predict(source=temp_img_path, conf=conf_thresh, iou=0.45)
+        with st.spinner("🧠 Running YOLOv8 inference..."):
+            results = model.predict(source=img_path, conf=conf_thresh, iou=0.45)
 
             for r in results:
                 output_img = r.plot()
@@ -47,26 +44,32 @@ with tab1:
                         st.write(f"✅ `{r.names[cls]}` with confidence `{conf:.2f}`")
                 else:
                     st.warning("😕 No defects detected.")
+        os.remove(img_path)
 
-        os.remove(temp_img_path)
-
-# === TAB 2 ===
+# === TAB 2: Take a Photo (Phone/Laptop Capture) ===
 with tab2:
-    st.header("📷 Live Detection from Webcam")
+    st.header("📸 Capture Photo Using Device Camera")
+    st.markdown("Most smartphones/laptops will show a **camera option** when you tap the uploader below.")
 
-    def gradio_live_detect(image):
-        if image is None:
-            return None
-        image = Image.fromarray(image)
-        result = model.predict(source=image, conf=0.25, iou=0.45)[0]
-        return result.plot()
+    camera_file = st.file_uploader("Take or upload a photo", type=["jpg", "jpeg", "png"], key="camera")
+    if camera_file:
+        st.image(camera_file, caption="Captured Photo", use_column_width=True)
+        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".jpg")
+        temp_file.write(camera_file.read())
+        img_path = temp_file.name
 
-    with st.spinner("⚡ Launching Gradio webcam..."):
-        iface = gr.Interface(
-            fn=gradio_live_detect,
-            inputs=gr.Image(type="numpy", label="Webcam"),  # <-- NEW GRADIO 4.x style
-            outputs=gr.Image(label="Detection Result"),
-            live=True
-        )
-        gradio_url = iface.launch(share=False, inbrowser=False, prevent_thread_lock=True)
-        components.html(f"<iframe src='{gradio_url}' width='100%' height='650' frameborder='0'></iframe>", height=670)
+        with st.spinner("🧠 Running YOLOv8 inference..."):
+            results = model.predict(source=img_path, conf=0.25, iou=0.45)
+            for r in results:
+                output_img = r.plot()
+                st.image(Image.fromarray(output_img), caption="🔍 Detection Output", use_column_width=True)
+
+                if r.boxes:
+                    st.subheader("📝 Detected Classes")
+                    for box in r.boxes:
+                        cls = int(box.cls[0])
+                        conf = float(box.conf[0])
+                        st.write(f"✅ `{r.names[cls]}` with confidence `{conf:.2f}`")
+                else:
+                    st.warning("😕 No defects detected.")
+        os.remove(img_path)
