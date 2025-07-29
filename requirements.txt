@@ -1,6 +1,5 @@
 streamlit
-gradio>=4.0.0
 ultralytics
 opencv-python-headless
-gdown
 Pillow
+gdown
