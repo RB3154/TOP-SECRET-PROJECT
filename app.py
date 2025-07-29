@@ -54,18 +54,19 @@ with tab1:
 with tab2:
     st.header("📷 Live Detection from Webcam")
 
-    def gradio_live_detect(frame):
-        image = Image.fromarray(frame)
+    def gradio_live_detect(image):
+        if image is None:
+            return None
+        image = Image.fromarray(image)
         result = model.predict(source=image, conf=0.25, iou=0.45)[0]
         return result.plot()
 
-    # Launch Gradio inline
-    with st.spinner("⚡ Loading webcam..."):
-        gradio_html = gr.Interface(
+    with st.spinner("⚡ Launching Gradio webcam..."):
+        iface = gr.Interface(
             fn=gradio_live_detect,
-            inputs=gr.Image(source="webcam", streaming=True),
-            outputs="image",
+            inputs=gr.Image(type="numpy", label="Webcam"),  # <-- NEW GRADIO 4.x style
+            outputs=gr.Image(label="Detection Result"),
             live=True
-        ).launch(share=False, inline=True, inbrowser=False, prevent_thread_lock=True)
-
-        components.html(gradio_html, height=640)
+        )
+        gradio_url = iface.launch(share=False, inbrowser=False, prevent_thread_lock=True)
+        components.html(f"<iframe src='{gradio_url}' width='100%' height='650' frameborder='0'></iframe>", height=670)
