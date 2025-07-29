@@ -1,0 +1,6 @@
+streamlit
+gradio
+ultralytics
+opencv-python-headless
+gdown
+Pillow
